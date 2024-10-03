@@ -1,70 +1,66 @@
-# Getting Started with Create React App
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# Audio Visualizer
 
-## Available Scripts
+## 소개
+Audio Visualizer는 음악을 시각적으로 표현하는 웹 애플리케이션입니다. 다양한 시각화 옵션을 통해 사용자는 음악을 듣는 동시에 독특하고 매력적인 시각적 경험을 즐길 수 있습니다.
 
-In the project directory, you can run:
+## 주요 기능
+- 다양한 시각화 옵션:
+  - Ocean Waves: 파도 모양의 애니메이션으로 음악을 표현
+  - Bar Graph: 주파수 스펙트럼을 막대 그래프로 시각화
+  - Circle Visualization: 원형으로 음악의 주파수를 표현
+  - Waveform: 오디오 파형을 직접적으로 표시
+  - Spectrogram: 시간에 따른 주파수 변화를 색상으로 표현
+- 오디오 파일 업로드 및 재생
+- 재생/일시정지, 앞으로/뒤로 이동 등의 오디오 컨트롤
+- 실시간 오디오 분석 및 시각화
 
-### `npm start`
+## 기술 스택
+- React
+- Web Audio API
+- Canvas API
+- Three.js (3D 시각화)
+- Tailwind CSS (스타일링)
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## 설치 및 실행 방법
+1. 저장소를 클론합니다:
+   ```
+   git clone https://github.com/your-username/audio-visualizer.git
+   ```
+2. 프로젝트 디렉토리로 이동합니다:
+   ```
+   cd audio-visualizer
+   ```
+3. 필요한 패키지를 설치합니다:
+   ```
+   npm install
+   ```
+4. 개발 서버를 실행합니다:
+   ```
+   npm start
+   ```
+5. 브라우저에서 `http://localhost:3000`을 열어 앱을 확인합니다.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 사용 방법
+1. "Choose audio file" 버튼을 클릭하여 오디오 파일을 업로드합니다.
+2. 재생 버튼을 눌러 음악을 시작합니다.
+3. 드롭다운 메뉴에서 원하는 시각화 옵션을 선택합니다.
+4. 재생 컨트롤을 사용하여 음악을 조절합니다.
 
-### `npm test`
+## 기여 방법
+프로젝트 개선에 기여하고 싶으시다면:
+1. 이 저장소를 포크합니다.
+2. 새 브랜치를 생성합니다 (`git checkout -b feature/AmazingFeature`).
+3. 변경 사항을 커밋합니다 (`git commit -m 'Add some AmazingFeature'`).
+4. 브랜치에 푸시합니다 (`git push origin feature/AmazingFeature`).
+5. Pull Request를 생성합니다.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 라이선스
+이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
 
-### `npm run build`
+## 연락처
+프로젝트 관리자: Reasonofmoon - soundfury37@gmail.com
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+프로젝트 링크: https://github.com/Reasonofmoon/audio-visualizer
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
