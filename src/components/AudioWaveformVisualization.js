@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PlayCircle, PauseCircle, SkipForward, SkipBack } from 'lucide-react';
+import {
+  renderOcean,
+  renderBars,
+  renderCircle,
+  renderWaveform,
+  renderSpectrogram,
+} from '../utils/visualizationRenderers';
 
 const AudioWaveformVisualization = () => {
   const [audioBuffer, setAudioBuffer] = useState(null);
@@ -7,6 +14,9 @@ const AudioWaveformVisualization = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [visualizationType, setVisualizationType] = useState('ocean');
+  const [audioError, setAudioError] = useState(null); // For file loading/decoding errors
+  const [hasAudioSupport, setHasAudioSupport] = useState(false); // Initialize to false
+  const [initializationError, setInitializationError] = useState(null); // For setup errors
 
   const canvasRef = useRef(null);
   const spectrogramCanvasRef = useRef(null);
@@ -21,35 +31,91 @@ const AudioWaveformVisualization = () => {
   const spectrogramBufferLengthRef = useRef(0);
   const spectrogramWidth = 800;
   const spectrogramHeight = 400;
+  const particlesRef = useRef([]);
 
+  // Effect for checking comprehensive Audio Support
   useEffect(() => {
-    audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-    analyserRef.current = audioContextRef.current.createAnalyser();
-    analyserRef.current.fftSize = 1024;
-    spectrogramBufferLengthRef.current = analyserRef.current.frequencyBinCount;
-    spectrogramDataRef.current = new Uint8Array(spectrogramBufferLengthRef.current);
+    const checkAudioSupport = () => {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {
+        try {
+          const testContext = new AudioContextClass();
+          if (
+            typeof testContext.createAnalyser === 'function' &&
+            typeof testContext.createBufferSource === 'function' &&
+            typeof testContext.decodeAudioData === 'function' // Check decodeAudioData as well
+          ) {
+            setHasAudioSupport(true);
+            console.log("Web Audio API is supported.");
+          } else {
+            setHasAudioSupport(false);
+            setInitializationError("Key audio features (e.g., createAnalyser, createBufferSource, decodeAudioData) are missing.");
+            console.warn("Key audio features are missing from AudioContext prototype.");
+          }
+          // Attempt to close the test context, catching errors if it's already closed or invalid
+          if (testContext.close && testContext.state !== 'closed') {
+            testContext.close().catch(e => console.warn("Error closing test AudioContext:", e));
+          }
+        } catch (error) {
+          setHasAudioSupport(false);
+          setInitializationError(`AudioContext could not be created: ${error.message}`);
+          console.warn('AudioContext could not be created during support check:', error);
+        }
+      } else {
+        setHasAudioSupport(false);
+        setInitializationError("Web Audio API is not supported in this browser.");
+        console.warn('Web Audio API is not supported in this browser.');
+      }
+    };
 
+    checkAudioSupport();
+  }, []); // Runs once on mount
+
+  // Effect for AudioContext and Analyser setup (conditional on hasAudioSupport)
+  useEffect(() => {
+    if (!hasAudioSupport) return; // Don't proceed if audio support is not confirmed
+
+    // We assume AudioContextClass is available if hasAudioSupport is true
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    try {
+      audioContextRef.current = new AudioContextClass();
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 1024;
+      spectrogramBufferLengthRef.current = analyserRef.current.frequencyBinCount;
+      spectrogramDataRef.current = new Uint8Array(spectrogramBufferLengthRef.current);
+      console.log("AudioContext and Analyser initialized for the component.");
+    } catch (error) {
+      console.warn('AudioContext/Analyser setup for component failed:', error);
+      setInitializationError(`Audio setup failed: ${error.message}. Visualizer may not work.`);
+      // setHasAudioSupport(false); // Optionally degrade if setup fails post-support-check
+    }
+
+    return () => {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(e => console.warn("Error closing component AudioContext:", e));
+      }
+    };
+  }, [hasAudioSupport]); // Depends on hasAudioSupport
+
+  // Effect for Canvas setup
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas) {
       canvasCtxRef.current = canvas.getContext('2d');
     }
+  }, []);
 
+  // Effect for Spectrogram Canvas setup
+  useEffect(() => {
     const spectrogramCanvas = spectrogramCanvasRef.current;
     if (spectrogramCanvas) {
       spectrogramCtxRef.current = spectrogramCanvas.getContext('2d');
       spectrogramCtxRef.current.fillStyle = 'black';
       spectrogramCtxRef.current.fillRect(0, 0, spectrogramWidth, spectrogramHeight);
     }
-
-    return () => {
-      cancelAnimationFrame(animationRef.current);
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close();
-      }
-    };
   }, []);
-
-  const particlesRef = useRef([]);
+  
+  // Effect for Particles Initialization
   useEffect(() => {
     const initializeParticles = () => {
       const particles = [];
@@ -67,8 +133,19 @@ const AudioWaveformVisualization = () => {
     initializeParticles();
   }, []);
 
+  // Cleanup animation frame
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(animationRef.current);
+    };
+  }, []);
+
   const loadAudio = async (file) => {
-    if (!audioContextRef.current) return;
+    if (!audioContextRef.current) {
+      setAudioError("Audio system not ready. Please ensure your browser supports Web Audio API.");
+      return;
+    }
+    setAudioError(null); 
     try {
       const arrayBuffer = await file.arrayBuffer();
       const decodedBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
@@ -77,12 +154,12 @@ const AudioWaveformVisualization = () => {
       setCurrentTime(0);
     } catch (error) {
       console.error("Error loading audio file:", error);
-      alert("오디오 파일을 로드하는 중 오류가 발생했습니다.");
+      setAudioError("Error decoding audio file. Please ensure it's a valid MP3 or WAV file.");
     }
   };
 
   const play = () => {
-    if (!audioBuffer) return;
+    if (!audioBuffer || !audioContextRef.current || !analyserRef.current) return;
     if (audioContextRef.current.state === 'suspended') {
       audioContextRef.current.resume();
     }
@@ -114,7 +191,8 @@ const AudioWaveformVisualization = () => {
     }
   };
 
-  const animate = () => { // Ensure single definition
+  const animate = () => {
+    if (!analyserRef.current || !audioContextRef.current) return; 
     animationRef.current = requestAnimationFrame(animate);
 
     if (isPlaying) {
@@ -122,239 +200,52 @@ const AudioWaveformVisualization = () => {
       setCurrentTime(Math.min(elapsed, duration));
     }
 
-    analyserRef.current.getByteFrequencyData(spectrogramDataRef.current);
-    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-    analyserRef.current.getByteFrequencyData(dataArray);
+    if (spectrogramDataRef.current && analyserRef.current.frequencyBinCount > 0) {
+        analyserRef.current.getByteFrequencyData(spectrogramDataRef.current);
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+        analyserRef.current.getByteFrequencyData(dataArray);
 
-    switch (visualizationType) {
-      case 'ocean':
-        renderOcean(dataArray);
-        break;
-      case 'bars':
-        renderBars(dataArray);
-        break;
-      case 'circle':
-        renderCircle(dataArray);
-        break;
-      case 'waveform':
-        renderWaveform();
-        break;
-      case 'spectrogram':
-        renderSpectrogram();
-        break;
-      default:
-        renderOcean(dataArray);
+        switch (visualizationType) {
+          case 'ocean':
+            renderOcean(canvasCtxRef.current, canvasRef.current, dataArray, analyserRef.current, particlesRef);
+            break;
+          case 'bars':
+            renderBars(canvasCtxRef.current, canvasRef.current, dataArray, analyserRef.current);
+            break;
+          case 'circle':
+            renderCircle(canvasCtxRef.current, canvasRef.current, dataArray, analyserRef.current);
+            break;
+          case 'waveform':
+            renderWaveform(canvasCtxRef.current, canvasRef.current, audioBuffer, analyserRef.current, animationRef);
+            break;
+          case 'spectrogram':
+            renderSpectrogram(spectrogramCtxRef.current, analyserRef.current, spectrogramBufferLengthRef.current, spectrogramDataRef.current, spectrogramWidth, spectrogramHeight);
+            break;
+          default:
+            renderOcean(canvasCtxRef.current, canvasRef.current, dataArray, analyserRef.current, particlesRef);
+        }
     }
   };
 
-  const renderOcean = (dataArray) => {
-    const ctx = canvasCtxRef.current;
-    if (!ctx) return;
-
-    const canvas = canvasRef.current;
-    const width = canvas.width;
-    const height = canvas.height;
-
-    ctx.clearRect(0, 0, width, height);
-
-    const gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, '#87CEEB');
-    gradient.addColorStop(1, '#1E90FF');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-
-    drawOceanWave(ctx, dataArray, width, height, analyserRef.current.frequencyBinCount);
-    drawOceanParticles(ctx, dataArray, width, height, analyserRef.current.frequencyBinCount);
-  };
-
-  const drawOceanWave = (ctx, dataArray, width, height, bufferLength) => {
-    let x = 0;
-    const sliceWidth = width / bufferLength;
-
-    ctx.beginPath();
-    ctx.moveTo(0, height / 2);
-
-    for (let i = 0; i < bufferLength; i++) {
-      const v = dataArray[i] / 255;
-      const y = v * height;
-      const midX = x + sliceWidth / 2;
-      const midY = (y + (dataArray[i + 1] / 255) * height) / 2;
-      ctx.quadraticCurveTo(x, y, midX, midY);
-      x += sliceWidth;
-    }
-
-    ctx.lineTo(width, height / 2);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.stroke();
-
-    ctx.lineTo(width, height);
-    ctx.lineTo(0, height);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.fill();
-  };
-
-  const drawOceanParticles = (ctx, dataArray, width, height, bufferLength) => {
-    const particles = particlesRef.current;
-
-    for (let i = 0; i < particles.length; i++) {
-      const particle = particles[i];
-      ctx.beginPath();
-      ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
-      ctx.fillStyle = particle.color;
-      ctx.fill();
-
-      const movement = (dataArray[i % bufferLength] / 255) * 2 - 1;
-      particle.y += movement * 2;
-      particle.x += Math.sin(particle.y / 20) * 2;
-
-      if (particle.y > height) {
-        particle.y = 0;
-      } else if (particle.y < 0) {
-        particle.y = height;
-      }
-
-      if (particle.x > width) {
-        particle.x = 0;
-      } else if (particle.x < 0) {
-        particle.x = width;
-      }
-    }
-  };
-
-  const renderBars = (dataArray) => {
-    const ctx = canvasCtxRef.current;
-    if (!ctx) return;
-
-    const canvas = canvasRef.current;
-    const width = canvas.width;
-    const height = canvas.height;
-
-    ctx.clearRect(0, 0, width, height);
-
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, width, height);
-
-    const barWidth = (width / analyserRef.current.frequencyBinCount) * 2.5;
-    let x = 0;
-
-    for (let i = 0; i < analyserRef.current.frequencyBinCount; i++) {
-      const v = dataArray[i];
-      const y = (v / 255) * height;
-
-      ctx.fillStyle = `rgb(${v + 100},50,50)`;
-      ctx.fillRect(x, height - y, barWidth, y);
-
-      x += barWidth + 1;
-    }
-  };
-
-  const renderCircle = (dataArray) => {
-    const ctx = canvasCtxRef.current;
-    if (!ctx) return;
-
-    const canvas = canvasRef.current;
-    const width = canvas.width;
-    const height = canvas.height;
-    const centerX = width / 2;
-    const centerY = height / 2;
-
-    ctx.clearRect(0, 0, width, height);
-
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, width, height);
-
-    const radius = Math.min(width, height) / 4;
-    const bars = analyserRef.current.frequencyBinCount;
-
-    for (let i = 0; i < bars; i++) {
-      const angle = (i / bars) * Math.PI * 2;
-      const v = dataArray[i];
-      const length = (v / 255) * radius;
-
-      const x = centerX + Math.cos(angle) * (radius + length);
-      const y = centerY + Math.sin(angle) * (radius + length);
-
-      ctx.beginPath();
-      ctx.moveTo(centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius);
-      ctx.lineTo(x, y);
-      ctx.strokeStyle = `hsl(${(i / bars) * 360}, 100%, 50%)`;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
-  };
-
-  const renderWaveform = () => {
-    if (!audioBuffer || !canvasRef.current) return;
-  
-    const ctx = canvasCtxRef.current;
-    const width = canvasRef.current.width;
-    const height = canvasRef.current.height;
-  
-    ctx.clearRect(0, 0, width, height);
-  
-    // Using an analyser with the current audio context
-    analyserRef.current.fftSize = 2048;
-    const bufferLength = analyserRef.current.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-   
-    // Reading from the current play time rather than creating a full new audio source
-    const draw = () => {
-      animationRef.current = requestAnimationFrame(draw);
-  
-      analyserRef.current.getByteTimeDomainData(dataArray);
-  
-      ctx.fillStyle = 'rgb(0, 0, 0)';
-      ctx.fillRect(0, 0, width, height);
-  
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = 'rgb(0, 255, 0)';
-      ctx.beginPath();
-  
-      const sliceWidth = (width * 1.0) / bufferLength;
-      let x = 0;
-  
-      for (let i = 0; i < bufferLength; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = (v * height) / 2;
-  
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  
-        x += sliceWidth;
-      }
-  
-      ctx.lineTo(width, height / 2);
-      ctx.stroke();
-    };
-  
-    draw();
-  };
-  
-  const renderSpectrogram = () => {
-    const ctx = spectrogramCtxRef.current;
-    if (!ctx) return;
-  
-    const width = spectrogramWidth;
-    const height = spectrogramHeight;
-  
-    // Shift the spectrogram image to the left
-    const imageData = ctx.getImageData(1, 0, width - 1, height);
-    ctx.putImageData(imageData, 0, 0);
-  
-    const barHeight = height / spectrogramBufferLengthRef.current;
-  
-    analyserRef.current.getByteFrequencyData(spectrogramDataRef.current);
-  
-    for (let i = 0; i < spectrogramBufferLengthRef.current; i++) {
-      const value = spectrogramDataRef.current[i];
-      const percent = value / 255;
-      const hue = (i / spectrogramBufferLengthRef.current) * 360;
-      const saturation = '100%';
-      const lightness = `${percent * 50}%`;
-  
-      ctx.fillStyle = `hsl(${hue}, ${saturation}, ${lightness})`;
-      ctx.fillRect(width - 1, height - i * barHeight, 1, barHeight);
-    }
-  };
+  if (!hasAudioSupport) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 bg-gradient-to-b from-indigo-700 via-purple-700 to-pink-700 rounded-lg shadow-2xl text-white min-h-[300px] w-full max-w-2xl mx-auto my-10">
+        <h2 className="text-2xl font-bold mb-4">Audio Visualization Not Available</h2>
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400 mb-4">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <p className="text-center mb-2 px-4">
+          Unfortunately, your browser or current environment does not fully support the Web Audio API needed for this visualizer.
+        </p>
+        {initializationError && <p className="text-sm text-red-300 bg-black bg-opacity-20 px-3 py-1 rounded-md mt-2">Details: {initializationError}</p>}
+        <p className="text-sm mt-6">
+          Please try using a modern browser like Chrome, Firefox, Edge, or Safari.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center p-8 bg-gradient-to-b from-indigo-900 via-purple-900 to-pink-800 rounded-lg shadow-2xl">
@@ -363,10 +254,11 @@ const AudioWaveformVisualization = () => {
         <canvas ref={canvasRef} width="800" height="400" className="absolute top-0 left-0 rounded-lg shadow-lg" />
         <canvas ref={spectrogramCanvasRef} width="800" height="400" className="absolute top-0 left-0 rounded-lg shadow-lg" style={{ display: visualizationType === 'spectrogram' ? 'block' : 'none' }} />
       </div>
-      <div className="flex items-center space-x-6 mb-6">
+      <div className="flex items-center space-x-4 mb-6">
         <button 
           className="p-3 bg-white rounded-full shadow-md hover:bg-indigo-100 transition-colors duration-200" 
           onClick={isPlaying ? pause : play}
+          disabled={!audioBuffer} // Disable if no audio buffer
         >
           {isPlaying ? <PauseCircle size={32} className="text-indigo-600" /> : <PlayCircle size={32} className="text-indigo-600" />}
         </button>
@@ -376,6 +268,7 @@ const AudioWaveformVisualization = () => {
             const newTime = Math.max(0, currentTime - 5);
             setCurrentTime(newTime);
           }}
+          disabled={!audioBuffer} // Disable if no audio buffer
         >
           <SkipBack size={32} className="text-indigo-600" />
         </button>
@@ -385,6 +278,7 @@ const AudioWaveformVisualization = () => {
             const newTime = Math.min(duration, currentTime + 5);
             setCurrentTime(newTime);
           }}
+          disabled={!audioBuffer} // Disable if no audio buffer
         >
           <SkipForward size={32} className="text-indigo-600" />
         </button>
@@ -392,6 +286,7 @@ const AudioWaveformVisualization = () => {
           className="p-3 bg-white rounded-lg shadow-md text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           onChange={(e) => setVisualizationType(e.target.value)}
           value={visualizationType}
+          disabled={!audioBuffer} // Disable if no audio buffer
         >
           <option value="ocean">Ocean Waves</option>
           <option value="bars">Bar Graph</option>
@@ -406,19 +301,30 @@ const AudioWaveformVisualization = () => {
           type="file"
           accept="audio/mp3, audio/wav, audio/mpeg"
           onChange={(e) => {
-            if (e.target.files.length > 0) {
-              loadAudio(e.target.files[0]);
+            const file = e.target.files[0];
+            if (file) {
+              const allowedTypes = ["audio/mpeg", "audio/wav", "audio/mp3"];
+              if (!allowedTypes.includes(file.type)) {
+                setAudioError(`Invalid file type: ${file.name} (${file.type}). Please select an MP3 or WAV file.`);
+                setAudioBuffer(null); 
+                setDuration(0);
+                setCurrentTime(0);
+                return;
+              }
+              setAudioError(null); 
+              loadAudio(file);
             }
           }}
           className="block w-full text-sm text-white
                      file:mr-4 file:py-2 file:px-4
-                     file:rounded-full file:border-0
+                     file:rounded-lg file:border-0
                      file:text-sm file:font-semibold
                      file:bg-indigo-50 file:text-indigo-700
                      hover:file:bg-indigo-100
                      cursor-pointer focus:outline-none"
         />
       </label>
+      {audioError && <p className="text-red-400 text-sm mt-3 mb-2 text-center">{audioError}</p>}
       <div className="w-full max-w-xs mt-4">
         <div className="flex justify-between text-white text-sm">
           <span>{formatTime(currentTime)}</span>
@@ -436,7 +342,7 @@ const AudioWaveformVisualization = () => {
 };
 
 // Helper function to format time in mm:ss
-const formatTime = (time) => {
+export const formatTime = (time) => {
   if (isNaN(time)) return '00:00';
   const minutes = Math.floor(time / 60);
   const seconds = Math.floor(time % 60);
