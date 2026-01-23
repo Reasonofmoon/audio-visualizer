@@ -186,8 +186,18 @@ export const renderSpectrogram = (spectrogramCtx, analyser, spectrogramBufferLen
   const width = spectrogramWidth;
   const height = spectrogramHeight;
 
-  const imageData = spectrogramCtx.getImageData(1, 0, width - 1, height);
-  spectrogramCtx.putImageData(imageData, 0, 0);
+  // Optimization: Use drawImage for faster GPU-based scrolling instead of getImageData/putImageData
+  spectrogramCtx.drawImage(
+    spectrogramCtx.canvas,
+    1,
+    0,
+    width - 1,
+    height,
+    0,
+    0,
+    width - 1,
+    height
+  );
 
   const barHeight = height / spectrogramBufferLength;
 
