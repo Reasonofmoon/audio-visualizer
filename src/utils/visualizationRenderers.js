@@ -148,36 +148,30 @@ export const renderWaveform = (canvasCtx, canvas, audioBuffer, analyser, animati
   analyser.fftSize = 2048;
   const bufferLength = analyser.frequencyBinCount;
   const dataArray = new Uint8Array(bufferLength);
- 
-  const draw = () => {
-    animationRef.current = requestAnimationFrame(draw);
 
-    analyser.getByteTimeDomainData(dataArray);
+  analyser.getByteTimeDomainData(dataArray);
 
-    ctx.fillStyle = 'rgb(0, 0, 0)';
-    ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = 'rgb(0, 0, 0)';
+  ctx.fillRect(0, 0, width, height);
 
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgb(0, 255, 0)';
-    ctx.beginPath();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgb(0, 255, 0)';
+  ctx.beginPath();
 
-    const sliceWidth = (width * 1.0) / bufferLength;
-    let x = 0;
+  const sliceWidth = (width * 1.0) / bufferLength;
+  let x = 0;
 
-    for (let i = 0; i < bufferLength; i++) {
-      const v = dataArray[i] / 128.0;
-      const y = (v * height) / 2;
+  for (let i = 0; i < bufferLength; i++) {
+    const v = dataArray[i] / 128.0;
+    const y = (v * height) / 2;
 
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
 
-      x += sliceWidth;
-    }
+    x += sliceWidth;
+  }
 
-    ctx.lineTo(width, height / 2);
-    ctx.stroke();
-  };
-
-  draw();
+  ctx.lineTo(width, height / 2);
+  ctx.stroke();
 };
   
 export const renderSpectrogram = (spectrogramCtx, analyser, spectrogramBufferLength, spectrogramData, spectrogramWidth, spectrogramHeight) => {
