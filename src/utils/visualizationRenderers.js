@@ -1,3 +1,5 @@
+const oceanGradientCache = new WeakMap();
+
 export const renderOcean = (canvasCtx, canvas, dataArray, analyser, particlesRef) => {
   if (!canvasCtx) return;
 
@@ -6,9 +8,18 @@ export const renderOcean = (canvasCtx, canvas, dataArray, analyser, particlesRef
 
   canvasCtx.clearRect(0, 0, width, height);
 
-  const gradient = canvasCtx.createLinearGradient(0, 0, 0, height);
-  gradient.addColorStop(0, '#87CEEB');
-  gradient.addColorStop(1, '#1E90FF');
+  let gradient;
+  const cached = oceanGradientCache.get(canvasCtx);
+
+  if (cached && cached.height === height) {
+    gradient = cached.gradient;
+  } else {
+    gradient = canvasCtx.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, '#87CEEB');
+    gradient.addColorStop(1, '#1E90FF');
+    oceanGradientCache.set(canvasCtx, { height, gradient });
+  }
+
   canvasCtx.fillStyle = gradient;
   canvasCtx.fillRect(0, 0, width, height);
 
